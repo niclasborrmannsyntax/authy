@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase/config";
+import { auth, db } from "../firebase/config";
+import { setDoc, doc } from "firebase/firestore";
+import type { UserData } from "../models/UserData";
 
 interface RegisterProps {
   onSwitchToLogin: () => void;
@@ -36,10 +38,26 @@ export function Register({ onSwitchToLogin }: RegisterProps) {
     setLoading(true);
 
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      const user = userCredential.user;
       setEmail("");
       setPassword("");
       setConfirmPassword("");
+
+      const newUser: UserData = {
+        uid: user.uid,
+        email: user.email || "",
+        firstname: "",
+        surname: "",
+        age: null,
+        createdAt: Date.now(),
+      };
+
+      await setDoc(doc(db, "users", user.uid), newUser);
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
         setError("Email is already in use");
