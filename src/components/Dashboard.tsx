@@ -7,6 +7,7 @@ import {
   collection,
   getDocs,
   deleteDoc,
+  onSnapshot,
 } from "firebase/firestore";
 import { deleteUser, signOut } from "firebase/auth";
 import { auth, db } from "../firebase/config";
@@ -26,6 +27,8 @@ export function Dashboard() {
   const [saveError, setSaveError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
+  const [liveUsers, setLiveUsers] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -47,21 +50,41 @@ export function Dashboard() {
   }, [user]);
 
   useEffect(() => {
+    const usersCollection = collection(db, "users");
+
+    if (liveUsers) {
+      const unsubscribe = onSnapshot(
+        usersCollection,
+        (snapshot) => {
+          const usersList: UserData[] = [];
+          snapshot.forEach((userDoc) => {
+            usersList.push(userDoc.data() as UserData);
+          });
+          setUsers(usersList);
+        },
+        (error) => {
+          console.error("Error listening to users:", error);
+        },
+      );
+
+      return () => unsubscribe();
+    }
+
     const fetchAllUsers = async () => {
       try {
-        const usersCollection = collection(db, "users");
         const querySnapshot = await getDocs(usersCollection);
         const usersList: UserData[] = [];
-        querySnapshot.forEach((doc) => {
-          usersList.push(doc.data() as UserData);
+        querySnapshot.forEach((userDoc) => {
+          usersList.push(userDoc.data() as UserData);
         });
         setUsers(usersList);
       } catch (error) {
         console.error("Error fetching users:", error);
       }
     };
+
     fetchAllUsers();
-  }, []);
+  }, [liveUsers]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
@@ -116,13 +139,46 @@ export function Dashboard() {
     }
   };
 
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    setDeleteError("");
+
+    try {
+      await signOut(auth);
+    } catch (error: any) {
+      setDeleteError(error.message || "Failed to sign out");
+      console.error("Error signing out:", error);
+      setSigningOut(false);
+    }
+  };
+
   if (loading) return <div className="text-white">Loading profile...</div>;
 
   return (
     <div className="w-full max-w-2xl space-y-6">
       {/* Users List */}
       <div className="bg-white rounded-lg shadow-2xl p-8">
-        <h2 className="text-2xl font-bold mb-6 text-gray-900">All Users</h2>
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">All Users</h2>
+          <label className="inline-flex items-center gap-3 text-sm font-medium text-gray-700">
+            <span>Live Data</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={liveUsers}
+              onClick={() => setLiveUsers((prev) => !prev)}
+              className={`relative h-6 w-11 rounded-full transition-colors ${
+                liveUsers ? "bg-indigo-600" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                  liveUsers ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </label>
+        </div>
         {users.length === 0 ? (
           <p className="text-gray-600">No users found</p>
         ) : (
@@ -245,6 +301,14 @@ export function Dashboard() {
                 onClick={handleDeleteProfile}
               >
                 {deleting ? "Deleting..." : "Delete Account"}
+              </button>
+              <button
+                type="button"
+                disabled={signingOut}
+                className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleSignOut}
+              >
+                {signingOut ? "Signing Out..." : "Sign Out"}
               </button>
             </div>
           </div>
