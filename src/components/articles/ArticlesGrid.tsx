@@ -1,55 +1,37 @@
 import { useEffect, useState } from "react";
-
-type StrapiArticle = {
-  id: number;
-  documentId?: string;
-  title?: string;
-  description?: string;
-  attributes?: {
-    title?: string;
-    description?: string;
-  };
-};
+import { ArticlesCard } from "./ArticlesCard";
+import type { Article } from "../../models/Article";
 
 type StrapiArticlesResponse = {
-  data: StrapiArticle[];
+  data: Article[];
 };
 
-type ArticleCard = {
-  id: string;
-  title: string;
-  description: string;
-};
-
-const STRAPI_BASE_URL = import.meta.env.VITE_STRAPI_URL;
+const STRAPI_BASE_URL =
+  import.meta.env.VITE_STRAPI_URL?.replace(/\/$/, "") ??
+  "http://localhost:1337";
 const STRAPI_API_TOKEN = import.meta.env.VITE_STRAPI_API_TOKEN?.trim();
-
-const ARTICLES_ENDPOINT = `${STRAPI_BASE_URL}/api/articles`;
-
-function mapArticle(article: StrapiArticle): ArticleCard {
-  const source = article.attributes ?? article;
-
-  return {
-    id: article.documentId ?? String(article.id),
-    title: source.title?.trim() || "Untitled article",
-    description:
-      source.description?.trim() ||
-      "This article does not have a description yet.",
-  };
-}
+const ARTICLES_ENDPOINT = `${STRAPI_BASE_URL}/api/articles?populate=*`;
 
 export function ArticlesGrid() {
-  const [articles, setArticles] = useState<ArticleCard[]>([]);
+  const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchArticles = async () => {
       setLoading(true);
       setError("");
+
       try {
         const response = await fetch(ARTICLES_ENDPOINT, {
-          headers: { Authorization: `Bearer ${STRAPI_API_TOKEN}` },
+          headers: {
+            ...(STRAPI_API_TOKEN
+              ? { Authorization: `Bearer ${STRAPI_API_TOKEN}` }
+              : {}),
+          },
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -57,9 +39,8 @@ export function ArticlesGrid() {
         }
 
         const result = (await response.json()) as StrapiArticlesResponse;
-        setArticles(
-          Array.isArray(result.data) ? result.data.map(mapArticle) : [],
-        );
+        console.log("Fetched articles:", result.data);
+        setArticles(result.data);
       } catch (fetchError) {
         if (
           fetchError instanceof DOMException &&
@@ -78,7 +59,10 @@ export function ArticlesGrid() {
         setLoading(false);
       }
     };
-    fetchArticles();
+
+    void fetchArticles();
+
+    return () => controller.abort();
   }, []);
 
   return (
@@ -107,6 +91,7 @@ export function ArticlesGrid() {
               key={index}
               className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 p-5"
             >
+              <div className="mb-4 h-40 animate-pulse rounded-2xl bg-slate-200" />
               <div className="space-y-3">
                 <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
                 <div className="h-6 w-3/4 animate-pulse rounded bg-slate-200" />
@@ -128,25 +113,7 @@ export function ArticlesGrid() {
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {articles.map((article) => (
-            <article
-              key={article.id}
-              className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg"
-            >
-              <div className="h-2 bg-linear-to-r from-indigo-500 via-sky-500 to-cyan-400" />
-              <div className="space-y-4 p-5">
-                <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">
-                  Article
-                </span>
-                <div>
-                  <h3 className="text-xl font-bold tracking-tight text-slate-950">
-                    {article.title}
-                  </h3>
-                  <p className="mt-2 line-clamp-4 text-sm leading-6 text-slate-600">
-                    {article.description}
-                  </p>
-                </div>
-              </div>
-            </article>
+            <ArticlesCard key={article.id} article={article} />
           ))}
         </div>
       )}

@@ -12,7 +12,7 @@ import {
 import { deleteUser, signOut } from "firebase/auth";
 import { auth, db } from "../firebase/config";
 import type { UserData } from "../models/UserData";
-import { ArticlesGrid } from "./ArticlesGrid";
+import { ArticlesGrid } from "./articles/ArticlesGrid";
 
 export function Dashboard() {
   const { user } = useAuth();
