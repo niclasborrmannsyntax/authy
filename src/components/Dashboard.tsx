@@ -12,6 +12,7 @@ import {
 import { deleteUser, signOut } from "firebase/auth";
 import { auth, db } from "../firebase/config";
 import type { UserData } from "../models/UserData";
+import { ArticlesGrid } from "./ArticlesGrid";
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -155,7 +156,9 @@ export function Dashboard() {
   if (loading) return <div className="text-white">Loading profile...</div>;
 
   return (
-    <div className="w-full max-w-2xl space-y-6">
+    <div className="w-full max-w-6xl space-y-6">
+      <ArticlesGrid />
+
       {/* Users List */}
       <div className="bg-white rounded-lg shadow-2xl p-8">
         <div className="mb-6 flex items-center justify-between">
